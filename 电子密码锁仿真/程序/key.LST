@@ -1,0 +1,204 @@
+C51 COMPILER V9.01   KEY                                                                   11/30/2018 14:37:27 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN key.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE key.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg51.h>
+   2          #include "main.h"
+   3          #include "display.h"
+   4          
+   5          
+   6          /******************************************
+   7           计算器按键扫描
+   8          ******************************************/
+   9          uchar temp = 0xff;
+  10          
+  11          
+  12          uchar Calkey_scan()
+  13          {
+  14   1              //**********扫描第一行*********
+  15   1              uchar tmp = 0xff;
+  16   1              P1=0xfe;
+  17   1              temp=P1;
+  18   1              temp=temp&0xf0;
+  19   1              if(temp!=0xf0)
+  20   1              {
+  21   2                      delay(50);
+  22   2                      temp=P1;
+  23   2                      temp=temp&0xf0;
+  24   2                      if(temp!=0xf0)
+  25   2                      {
+  26   3                              temp=P1;
+  27   3                              switch(temp)
+  28   3                              {
+  29   4                                      case 0xee:
+  30   4                                              tmp = 1;
+  31   4                                      break;
+  32   4                                      
+  33   4                                      case 0xde:
+  34   4                                              tmp = 2;
+  35   4                                      break;
+  36   4                                      
+  37   4                                      case 0xbe:
+  38   4                                              tmp = 3;
+  39   4                                      break;
+  40   4                                      
+  41   4                                      case 0x7e:
+  42   4                                              tmp = 4;
+  43   4                                      break;
+  44   4                              }
+  45   3                              while(temp!=0xf0)
+  46   3                              {
+  47   4                                      temp = P1;
+  48   4                                      temp = temp&0xf0;
+  49   4                              }
+  50   3              
+  51   3                      }
+  52   2              }
+  53   1      
+  54   1      
+  55   1              //**********扫描第二行*********
+C51 COMPILER V9.01   KEY                                                                   11/30/2018 14:37:27 PAGE 2   
+
+  56   1              P1=0xfd;
+  57   1              temp=P1;
+  58   1              temp=temp&0xf0;
+  59   1              if(temp!=0xf0)
+  60   1              {
+  61   2                      delay(50);
+  62   2                         temp=P1;
+  63   2                      temp=temp&0xf0;
+  64   2                      if(temp!=0xf0)
+  65   2                      {
+  66   3                              temp=P1;
+  67   3                              switch(temp)
+  68   3                              {
+  69   4                              case 0xed:
+  70   4                                      tmp = 5;
+  71   4                              break;
+  72   4                              
+  73   4                              case 0xdd:
+  74   4                                      tmp = 6;
+  75   4                              break;
+  76   4                              
+  77   4                              case 0xbd:
+  78   4                                      tmp = 7;
+  79   4                              break;
+  80   4                              
+  81   4                              case 0x7d:
+  82   4                                      tmp = 8;
+  83   4                              break;
+  84   4                              }
+  85   3                              while(temp!=0xf0)
+  86   3                              {
+  87   4                                      temp = P1;
+  88   4                                      temp = temp&0xf0;
+  89   4                              }
+  90   3                      
+  91   3                      }
+  92   2              }
+  93   1      
+  94   1      
+  95   1              //**********扫描第三行*********
+  96   1              P1=0xfb;
+  97   1              temp=P1;
+  98   1              temp=temp&0xf0;
+  99   1              if(temp!=0xf0)
+ 100   1              {
+ 101   2                      delay(50);
+ 102   2                      temp=P1;
+ 103   2                      temp=temp&0xf0;
+ 104   2                      if(temp!=0xf0)
+ 105   2                      {
+ 106   3                              temp=P1;
+ 107   3                              switch(temp)
+ 108   3                              {
+ 109   4                                      case 0xeb:
+ 110   4                                      tmp = 9;
+ 111   4                                      break;
+ 112   4                                      
+ 113   4                                      case 0xdb:
+ 114   4                                      tmp = 0;
+ 115   4                                      break;
+ 116   4                                      
+ 117   4                                      case 0xbb:
+C51 COMPILER V9.01   KEY                                                                   11/30/2018 14:37:27 PAGE 3   
+
+ 118   4                                      tmp = 11;
+ 119   4                                      break;
+ 120   4                                      
+ 121   4                                      case 0x7b:
+ 122   4                                      tmp = 12;
+ 123   4                                      break;
+ 124   4                              }
+ 125   3                              while(temp!=0xf0)
+ 126   3                              {
+ 127   4                                      temp = P1;
+ 128   4                                      temp = temp&0xf0;
+ 129   4                              }
+ 130   3                      }
+ 131   2                      
+ 132   2              }
+ 133   1      
+ 134   1              //**********扫描第四行*********
+ 135   1              P1=0xf7;
+ 136   1              temp=P1;
+ 137   1              temp=temp&0xf0;
+ 138   1              if(temp!=0xf0)
+ 139   1              {
+ 140   2                      delay(50);
+ 141   2                      temp=P1;
+ 142   2                      temp=temp&0xf0;
+ 143   2                      if(temp!=0xf0)
+ 144   2                      {
+ 145   3                              temp=P1;
+ 146   3                              switch(temp)
+ 147   3                              {
+ 148   4                              case 0xe7:
+ 149   4                                      tmp = 13;
+ 150   4                              break;
+ 151   4                              
+ 152   4                              case 0xd7:
+ 153   4                                      tmp =14;
+ 154   4                              break;
+ 155   4                              
+ 156   4                              case 0xb7:
+ 157   4                                      tmp = 15;
+ 158   4                              break;
+ 159   4                              
+ 160   4                              case 0x77:
+ 161   4                                      tmp = 16;
+ 162   4                              break;
+ 163   4                              }
+ 164   3                              
+ 165   3                              while(temp!=0xf0)
+ 166   3                              {
+ 167   4                                      temp = P1;
+ 168   4                                      temp = temp&0xf0;
+ 169   4                              }
+ 170   3                              
+ 171   3                      }
+ 172   2              }
+ 173   1              return tmp;
+ 174   1      
+ 175   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    354    ----
+C51 COMPILER V9.01   KEY                                                                   11/30/2018 14:37:27 PAGE 4   
+
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      1       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

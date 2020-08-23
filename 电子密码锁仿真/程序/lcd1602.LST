@@ -1,0 +1,103 @@
+C51 COMPILER V9.01   LCD1602                                                               11/30/2018 14:37:27 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE LCD1602
+OBJECT MODULE PLACED IN lcd1602.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE lcd1602.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "lcd1602.h"
+   2          #include <reg51.h>
+   3          #include "main.h"
+   4          
+   5          /************************
+   6           LCD相关变量
+   7          *************************/
+   8          sbit RS=P2^6;
+   9          sbit RW=P2^5;
+  10          sbit EN=P2^7;
+  11          
+  12          
+  13          
+  14          
+  15          /******************************************
+  16           延时1ms
+  17          ******************************************/
+  18           void delay1ms(unsigned int ms)
+  19          {
+  20   1              unsigned int i,j;
+  21   1         for(i=0;i<ms;i++)
+  22   1          for(j=0;j<100;j++);
+  23   1      }
+  24          
+  25          /*发命令*/
+  26          void wr_com(unsigned char com)
+  27          { 
+  28   1              unsigned char temp;
+  29   1              temp = com;
+  30   1         delay1ms(1);
+  31   1         RS=0;
+  32   1         RW=0;
+  33   1         EN=0;
+  34   1         P0=temp;
+  35   1         delay1ms(1);
+  36   1         EN=1;
+  37   1         delay1ms(1);
+  38   1         EN=0;
+  39   1      }
+  40          
+  41          /*写数据*/
+  42          void wr_dat(unsigned char dat)
+  43          { 
+  44   1         unsigned char temp;
+  45   1              temp = dat;
+  46   1         delay1ms(1);
+  47   1         RS=1;
+  48   1         RW=0;
+  49   1         EN=0;
+  50   1         P0=temp;
+  51   1         delay1ms(1);
+  52   1         EN=1;
+  53   1         delay1ms(1);
+  54   1         EN=0;
+  55   1      }
+C51 COMPILER V9.01   LCD1602                                                               11/30/2018 14:37:27 PAGE 2   
+
+  56          
+  57          /*LCD1602初始化*/
+  58          void lcd_init()
+  59          {
+  60   1              delay1ms(15);
+  61   1              wr_com(0x38);delay1ms(5);
+  62   1              wr_com(0x08);delay1ms(5);
+  63   1              wr_com(0x01);delay1ms(5);
+  64   1              wr_com(0x06);delay1ms(5);
+  65   1              wr_com(0x0c);delay1ms(5);
+  66   1      }
+  67          
+  68          void clear()//清屏
+  69          { 
+  70   1              uchar i;
+  71   1              for(i = 0;i < 16;i++)
+  72   1              {
+  73   2                      wr_com(0x80+i);
+  74   2                      wr_dat(' ');
+  75   2                      wr_com(0xc0+i);
+  76   2                      wr_dat(' ');
+  77   2              }
+  78   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    166    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

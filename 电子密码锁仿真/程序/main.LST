@@ -1,0 +1,299 @@
+C51 COMPILER V9.01   MAIN                                                                  11/30/2018 14:37:27 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <reg51.h>
+   2          #include <intrins.h>
+   3          #include <stdlib.h>
+   4          #include <string.h>
+   5          #include<absacc.h>
+   6          #include "lcd1602.h"
+   7          #include "main.h"
+   8          #include "key.h"
+   9          
+  10          sbit Lock = P3^7;  //代表锁控的继电器IO   高电平关锁，低电平开锁
+  11          sbit LEDRED = P2^0;  //代表密码输入错误的红灯IO  高电平熄灭，低电平点亮
+  12          sbit LEDGREEN = P2^1;  //代表密码输入正确的绿灯IO  高电平熄灭，低电平点亮
+  13          sbit beep=P1^5;  
+  14          uchar genPasswd[4];           //存储生成的四位随机数密码
+  15          uchar inpPasswd[4];           //存储取包时输入的四位密码
+  16          uchar code welcome[8]="welcome";  //开机显示的欢迎标语
+  17          uchar code set[7]="Passwd";    //显示生成的密码标题
+  18          uchar code  close[12]="close door!";   //提示关门
+  19          uchar code      input[13] = "input passwd";   //提示请输入密码
+  20          
+  21          /****************定时器设置相关的变量***********************/
+  22          unsigned char TL0_temp;  /*暂存TL0的初值*/
+  23          unsigned char TH0_temp;  /*暂存TH0的初值*/
+  24          #define INT_CLOCK 10    /*INT_CLOCK为定时值，单位为ms ,此处定义为10ms*/
+  25          #define CRY_FREQUENCY 11059200 /*CRY_FREQUENCY为晶振频率，单位为Hz*/
+  26          
+  27          
+  28          
+  29          
+  30          
+  31          /*延时程序*/
+  32          void delay(uint z)              
+  33          {
+  34   1              unsigned int i,j;
+  35   1         for(i=0;i<z;i++)
+  36   1          for(j=0;j<100;j++);
+  37   1      }
+  38          /******************************
+  39          显示首页 welcome
+  40          ******************************/
+  41          void display1()
+  42          {
+  43   1         unsigned char i;
+  44   1         for(i = 0;i < 7;i++)
+  45   1         {
+  46   2                      wr_com(0x85+i);
+  47   2                      wr_dat(welcome[i]);
+  48   2         }
+  49   1      }
+  50          
+  51          
+  52          /************************************
+  53          显示密码生成界面
+  54          ************************************/
+  55          void display2()
+C51 COMPILER V9.01   MAIN                                                                  11/30/2018 14:37:27 PAGE 2   
+
+  56          {
+  57   1         unsigned char i;
+  58   1         
+  59   1         for(i = 0;i < 6;i++)
+  60   1         {
+  61   2                      wr_com(0x85+i);
+  62   2                      wr_dat(set[i]);
+  63   2         }
+  64   1         for(i = 0;i < 4;i++)
+  65   1         {
+  66   2                      wr_com(0xc6+i);
+  67   2                      wr_dat(genPasswd[i]+0x30);
+  68   2                      
+  69   2         }
+  70   1      }
+  71          
+  72          /************************************
+  73          显示请关门界面
+  74          ************************************/
+  75          
+  76          void display3()
+  77          {
+  78   1           unsigned char i;
+  79   1         for(i = 0;i < 11;i++)
+  80   1         {
+  81   2                      wr_com(0x83+i);
+  82   2                      wr_dat(close[i]);
+  83   2         }
+  84   1      
+  85   1      }
+  86          
+  87          
+  88          /************************************
+  89          显示密码输入界面
+  90          ************************************/
+  91          void display4()
+  92          {
+  93   1         unsigned char i;
+  94   1         for(i = 0;i < 12;i++)
+  95   1         {
+  96   2                      wr_com(0x82+i);
+  97   2                      wr_dat(input[i]);
+  98   2         }
+  99   1         for(i = 0;i < 4;i++)
+ 100   1         {
+ 101   2                      wr_com(0xc6+i);
+ 102   2                      wr_dat(inpPasswd[i]+0x30);
+ 103   2                      
+ 104   2         }
+ 105   1      
+ 106   1      }
+ 107                  
+ 108          
+ 109          
+ 110          
+ 111          
+ 112          /***********************************
+ 113          定时器0初始化
+ 114          ***********************************/
+ 115          void Timer0_init()
+ 116          {
+ 117   1              unsigned long T0_temp;                                     /*暂存T0的初始值     */
+C51 COMPILER V9.01   MAIN                                                                  11/30/2018 14:37:27 PAGE 3   
+
+ 118   1              T0_temp = 65536-((INT_CLOCK *CRY_FREQUENCY /1000)/12);    /*T0初始值计算公式，参考教科书*/
+ 119   1              TL0_temp = T0_temp & 0xff;
+ 120   1              TH0_temp = T0_temp >> 8;
+ 121   1              TL0 = TL0_temp;
+ 122   1              TH0 = TH0_temp;
+ 123   1              TMOD |= 0x01;
+ 124   1              TR0 = 1;                      /*开定时器0中断*/
+ 125   1              ET0 = 1;  
+ 126   1              EA = 1;                    /*开总中断*/                                       
+ 127   1      
+ 128   1      }
+ 129          
+ 130          
+ 131          
+ 132          
+ 133          
+ 134          
+ 135          /*主函数*/
+ 136          uchar global_state = 0;
+ 137          uchar count_num = 0;  //输入的数字个数
+ 138          void main()
+ 139          {  
+ 140   1         uchar i,j;
+ 141   1         uchar passwd;
+ 142   1          
+ 143   1              uchar key_value = 0;
+ 144   1              uchar temp_key_value = 0xff;
+ 145   1              Lock = 1;  //刚上电 锁是需要保持闭合
+ 146   1              Timer0_init();  //定时器初始化
+ 147   1              lcd_init();     //LCD1602初始化
+ 148   1         
+ 149   1              while(1)        //进入不断循环
+ 150   1              {
+ 151   2                      temp_key_value = Calkey_scan();   //读取矩阵按键的键值
+ 152   2                      if(temp_key_value != 0xff)
+ 153   2                      {
+ 154   3                              key_value = temp_key_value;
+ 155   3                      }
+ 156   2                      switch(global_state)
+ 157   2                      {
+ 158   3                              case 0:  //初始化状态
+ 159   3                                      display1();      //显示欢迎语句 -- "welcome"
+ 160   3                              
+ 161   3      
+ 162   3                                      if(key_value == 13)  //存包按键被按下
+ 163   3                                      {
+ 164   4                                          key_value = 0xff;  //将按键值清除
+ 165   4                                              Lock = 0;    //开锁
+ 166   4                                              
+ 167   4                                              display3();    //显示关门提示语 -- "close door!"
+ 168   4                                          delay(1900);    //等待关门 大约3秒
+ 169   4                                              Lock = 1;   //关门
+ 170   4                                              clear();                 //清屏，准备下一屏的显示
+ 171   4                                              global_state = 1;   //切换运行状态
+ 172   4                                              passwd = TL0;  //采用定时器寄存器的值作为密码
+ 173   4                                              genPasswd[0] = passwd/100;                //存储密码
+ 174   4                                              genPasswd[1] = passwd%100/10;
+ 175   4                                              genPasswd[2] = passwd%10;
+ 176   4                                              genPasswd[3] = (genPasswd[1]+genPasswd[2])%10;
+ 177   4                                      } 
+ 178   3                                      if(key_value == 14)  //取包按键被按下
+ 179   3                                      {
+C51 COMPILER V9.01   MAIN                                                                  11/30/2018 14:37:27 PAGE 4   
+
+ 180   4                                          key_value = 0xff;  //将按键值清除
+ 181   4                                              clear();    //清屏，准备下一屏的显示
+ 182   4                                              global_state = 2;  //切换运行状态
+ 183   4                                              count_num = 0;   //清除数字按键变量
+ 184   4                                              for(i = 0;i < 4;i++)  //清空输入的密码数组
+ 185   4                                                  inpPasswd[i] = ' '-0x30;
+ 186   4                                      } 
+ 187   3                              break;
+ 188   3                              case 1:         //密码生成状态
+ 189   3                                      display2();      //显示密码生成界面
+ 190   3                                      delay(1900);    //等待大约3秒
+ 191   3                                      global_state = 0;  //返回到初始界面
+ 192   3                                      clear();        //清屏，准备下一屏的显示
+ 193   3                                      
+ 194   3                              break;
+ 195   3                              case 2:   //输入密码状态
+ 196   3                                 display4();     //显示输入密码界面
+ 197   3                                 if((key_value >= 0) && (key_value <= 9))       //如果按下的为0-9的数字按键
+ 198   3                                 {
+ 199   4                                     
+ 200   4                                      if(count_num <= 3)       //如果按键次数小于4次
+ 201   4                                              {
+ 202   5                                              inpPasswd[count_num] = key_value; //将按键值存入数组,并显示
+ 203   5                                                      count_num++;
+ 204   5                                          }
+ 205   4                                               key_value = 0xff;  //将按键值清除
+ 206   4                                 }
+ 207   3                                 if(key_value == 15) //清除按键被按下
+ 208   3                                 {
+ 209   4                                      key_value = 0xff;  //将按键值清除
+ 210   4                                              for(i = 0;i < 4;i++)
+ 211   4                                                inpPasswd[i] = ' '-0x30;  //清除刚刚输入的密码
+ 212   4                                 }
+ 213   3                                 if(key_value == 16) //确认按键被按下
+ 214   3                                 {
+ 215   4                                      key_value = 0xff;  //将按键值清除
+ 216   4                                              for(i = 0;i < 4;i++)
+ 217   4                                              {
+ 218   5                                                      if(inpPasswd[i] != genPasswd[i])
+ 219   5                                                         break;
+ 220   5                                              }
+ 221   4                                              if(i == 4)        //密码输入正确
+ 222   4                                              {
+ 223   5                                                      LEDRED = 1;      //红灯熄灭
+ 224   5                                                      LEDGREEN = 0;  //绿灯亮
+ 225   5                                                      Lock = 1;  //开锁
+ 226   5                                                      delay(1900);    //等待大约3秒
+ 227   5                                                      Lock = 0;  //关锁
+ 228   5                                                      LEDGREEN = 1;  //绿灯熄灭
+ 229   5                                              }
+ 230   4                                              else   //密码输入错误
+ 231   4                                              {       
+ 232   5      
+ 233   5                                                      for(j = 0;j <19009 ;j++)
+ 234   5                                                      {
+ 235   6                                                              beep=~beep;
+ 236   6                                                              delay(10);
+ 237   6                                                              LEDRED = 0;      //红灯亮
+ 238   6                                                              LEDGREEN = 1;  //绿灯熄灭
+ 239   6                                                               continue;
+ 240   6                                                       } 
+ 241   5                                                      Lock = 0;  //关锁
+C51 COMPILER V9.01   MAIN                                                                  11/30/2018 14:37:27 PAGE 5   
+
+ 242   5                                                      delay(1900);    //等待大约3秒
+ 243   5                                                      LEDRED = 1;  //红灯熄灭
+ 244   5                                              }
+ 245   4                                              clear();        //清屏，准备下一屏的显示
+ 246   4                                              global_state = 0;  //返回到初始界面
+ 247   4      
+ 248   4                                 }
+ 249   3                              break;  
+ 250   3                      }
+ 251   2              }
+ 252   1      }
+ 253          
+ 254          
+ 255          void T0_interrupt(void) interrupt 1      
+ 256          {
+ 257   1              TH0 += TH0_temp;
+ 258   1              TL0 += TL0_temp;
+ 259   1      
+ 260   1      }
+ 261          
+ 262          
+ 263          
+ 264                  
+ 265          
+ 266          
+ 267          
+ 268          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    627    ----
+   CONSTANT SIZE    =     40    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     12      11
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
