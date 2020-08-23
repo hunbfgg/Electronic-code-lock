@@ -1,0 +1,115 @@
+C51 COMPILER V9.54   MAIN                                                                  04/26/2020 11:23:25 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN ..\Output\main.obj
+COMPILER INVOKED BY: D:\keilARM\C51\BIN\C51.EXE main.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(..\Listin
+                    -g\main.lst) TABS(2) OBJECT(..\Output\main.obj)
+
+line level    source
+
+   1          /**********************************************************************************
+   2           
+   3          * 工程名  :电子密码锁
+   4          * 描述    :通过向GSM板发送控制命令短信，来控制单片机板上的LED灯，控制命令为：on 或是off。 
+   5          * 实验平台:STC89XX
+   6          *硬件及连接：
+   7          4*4矩阵按键    红色接P1^0，按顺序往后
+   8          继电器   + 5V
+   9                   - GND
+  10                   S P2^4
+  11          蜂鸣器  VCC 5V
+  12                  I/O P2^0
+  13                  GND GND
+  14          AT24C02   SCL P2^3
+  15                    SDA P2^2
+  16                    VCC 5V
+  17                    GND GND
+  18          SIM900A   独立供电USB口 5V 2A
+  19                    5VR RX
+  20                    5VT TX
+  21                    VCC_MCU 5V(可不接)
+  22                    GND GND
+  23          单片机 5V 供电
+  24          
+  25          **********************************************************************************/
+  26          
+  27          #include "string.h"
+  28          #include "delay.h"
+  29          #include "uart.h"
+  30          #include "timer0.h"
+  31          #include "SIMxxx.h"
+  32          #include "key.h"
+  33          #include "lcd.h"
+  34          
+  35          sbit RUNING_LED=P2^1; //程序中控制的LED灯
+  36          
+  37          /*************  外部函数和变量声明*****************/
+  38          /*******************************************************************************
+  39          * 函数名 : main 
+  40          * 描述   : 主函数
+  41          * 输入   : 
+  42          * 输出   : 
+  43          * 返回   : 
+  44          * 注意   : 
+  45          *******************************************************************************/
+  46          void main(void)
+  47          {
+  48   1        u8 res;
+  49   1        Uart1Init();
+  50   1        Timer0Init();
+  51   1        LcdInit();
+  52   1        EA=1; //开总中断
+  53   1        realy=0;
+  54   1        res=1;
+C51 COMPILER V9.54   MAIN                                                                  04/26/2020 11:23:25 PAGE 2   
+
+  55   1        RUNING_LED=0;
+  56   1        while(res)
+  57   1        {
+  58   2          res=sim900a_work_test();
+  59   2        }
+  60   1        res=1;
+  61   1        while(res)
+  62   1        {
+  63   2          res=sim900a_enmessage_mode_out();
+  64   2        }
+  65   1        RUNING_LED=1;
+  66   1        res=1;
+  67   1        duju();
+  68   1        while(1)
+  69   1        {
+  70   2          
+  71   2        if(Flag_Rec_Message==1) 
+  72   2        {
+  73   3          Flag_Rec_Message=0;
+  74   3          res=SIM_HANDLE_MESSAGE_CMD();
+  75   3          if(res)
+  76   3          {
+  77   4            if(res==1)    realy=1;
+  78   4            else if(res==2) realy=0;
+  79   4          }
+  80   3          
+  81   3        }   
+  82   2        keypros();
+  83   2          
+  84   2        } 
+  85   1      }
+  86          
+  87          
+  88          
+  89          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    109    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       1
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

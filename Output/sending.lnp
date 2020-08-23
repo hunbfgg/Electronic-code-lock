@@ -1,0 +1,10 @@
+"..\Output\delay.obj",
+"..\Output\main.obj",
+"..\Output\uart.obj",
+"..\Output\SIMxxx.obj",
+"..\Output\timer0.obj",
+"..\Output\i2c.obj",
+"..\Output\lcd.obj",
+"..\Output\key.obj" 
+TO "..\Output\sending" 
+PRINT("..\Listing\sending.m51") RAMSIZE(256) 

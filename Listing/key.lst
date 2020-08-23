@@ -1,0 +1,479 @@
+C51 COMPILER V9.54   KEY                                                                   04/26/2020 10:02:37 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN ..\Output\key.obj
+COMPILER INVOKED BY: D:\keilARM\C51\BIN\C51.EXE key.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(..\Listing
+                    -\key.lst) TABS(2) OBJECT(..\Output\key.obj)
+
+line level    source
+
+   1          #include "key.h"
+   2          #include "lcd.h"
+   3          #include "i2c.h"
+   4          #include "delay.h"
+   5          #include "TIMER0.h"
+   6          /**************************************************************************************
+   7          *                 矩阵按键实验                          *
+   8          实现现象：下载程序后数码管显示0，按下矩阵按键上的按键显示对应的数字
+   9                S1-S4：0-3
+  10                S5-S8：4-7
+  11                S9-S12：8-B
+  12                S13-S16：C-F。
+  13          注意事项：                                          
+  14          ***************************************************************************************/
+  15          
+  16          #define GPIO_DIG P0
+  17          #define GPIO_KEY P1
+  18          
+  19          sbit beep=P2^0;
+  20          sbit k1=P1^5;  //定义P15口是k1
+  21          sbit k2=P1^6;
+  22          sbit k3=P1^7;
+  23          
+  24          
+  25          unsigned int password_1[6]={0,0,0,0,0,0};
+  26          unsigned int password_2[6]={0,0,0,0,0,0};
+  27          unsigned int password_3[6]={0,0,0,0,0,0}; //存原始密码
+  28          unsigned int password_4[6]={0,0,0,0,0,0}; //存第二次密码
+  29          unsigned char re_admin_password[4]={'0','0','0','0'}; //管理员密码
+  30          
+  31          
+  32          unsigned char KeyValue=20;  //用来存放读取到的键值
+  33          unsigned char flag=1;
+  34          unsigned char flag_1=1;
+  35          unsigned char flag_2=1;
+  36          unsigned char flag_3=1;
+  37          unsigned char i;
+  38          
+  39          unsigned char words1[11]="pass input:";
+  40          unsigned char words2[9]="pass set:";
+  41          unsigned char words3[10]="orig pass:";
+  42          unsigned char words4[15]="orig pass error";
+  43          unsigned char words5[7]="success";
+  44          
+  45          void password_input(void);  
+  46          void match_password(void);          
+  47          void password_set(void);          
+  48          void password_original(void);
+  49          void admin_password_input(void);
+  50          
+  51          void duju()
+  52          {
+  53   1          password_4[0]=At24c02Read(1); 
+  54   1          delay_ms(100);
+C51 COMPILER V9.54   KEY                                                                   04/26/2020 10:02:37 PAGE 2   
+
+  55   1          password_4[1]=At24c02Read(3);
+  56   1          delay_ms(100);
+  57   1          password_4[2]=At24c02Read(5);
+  58   1          delay_ms(100);
+  59   1          password_4[3]=At24c02Read(7);
+  60   1          delay_ms(100);
+  61   1          password_4[4]=At24c02Read(9);
+  62   1          delay_ms(100);
+  63   1          password_4[5]=At24c02Read(11);
+  64   1          delay_ms(100);
+  65   1      }
+  66          
+  67          void keypros()
+  68          {
+  69   1        EA=0;
+  70   1      //  realy=0;
+  71   1        if(k1==0)     //输入密码
+  72   1        { 
+  73   2          delay_ms(10);
+  74   2          if(k1==0)  //再次判断按键是否按下
+  75   2          {
+  76   3            flag_2=1;
+  77   3      //      LcdWriteCom(0x01);
+  78   3            password_input();
+  79   3      
+  80   3          }
+  81   2          while(!k1);  //检测按键是否松开
+  82   2        }   
+  83   1        if(k2==0)     //设置密码
+  84   1        { 
+  85   2          delay_ms(10);
+  86   2          if(k2==0)  //再次判断按键是否按下
+  87   2          {
+  88   3            flag_1=1;
+  89   3            flag=1;
+  90   3            flag_3=1;
+  91   3      //      LcdWriteCom(0x01);
+  92   3            password_original();
+  93   3          }
+  94   2          while(!k2);  //检测按键是否松开
+  95   2        }   
+  96   1        if(k3==0)     //输入管理员密码
+  97   1        { 
+  98   2          delay_ms(10);  //消除抖动 一般大约10ms
+  99   2          if(k3==0)  //再次判断按键是否按下
+ 100   2          {
+ 101   3      //      LcdWriteCom(0x01);
+ 102   3            KeyValue=20;
+ 103   3            flag_2=1;
+ 104   3            admin_password_input();
+ 105   3          }
+ 106   2          while(!k3);  //检测按键是否松开
+ 107   2        }   
+ 108   1        EA=1;
+ 109   1      }
+ 110          
+ 111          /*******************************************************************************
+ 112          * 函 数 名         : KeyDown
+ 113          * 函数功能       : 检测有按键按下并读取键值
+ 114          * 输    入         : 无
+ 115          * 输    出         : 无
+ 116          *******************************************************************************/
+C51 COMPILER V9.54   KEY                                                                   04/26/2020 10:02:37 PAGE 3   
+
+ 117          void KeyDown(void)
+ 118          {
+ 119   1        char a=0;
+ 120   1        GPIO_KEY=0x0f;
+ 121   1        if(GPIO_KEY!=0x0f)//读取按键是否按下
+ 122   1        {
+ 123   2          delay_ms(10);//延时10ms进行消抖
+ 124   2          if(GPIO_KEY!=0x0f)//再次检测键盘是否按下
+ 125   2          { 
+ 126   3            //测试列
+ 127   3            GPIO_KEY=0X0F;
+ 128   3            switch(GPIO_KEY)
+ 129   3            {
+ 130   4              case(0X07): KeyValue=0;break;
+ 131   4              case(0X0b): KeyValue=1;break;
+ 132   4              case(0X0d): KeyValue=2;break;
+ 133   4              case(0X0e): KeyValue=3;break;
+ 134   4            }
+ 135   3            //测试行
+ 136   3            GPIO_KEY=0XF0;
+ 137   3            switch(GPIO_KEY)
+ 138   3            {
+ 139   4              case(0X70): KeyValue=KeyValue;break;
+ 140   4              case(0Xb0): KeyValue=KeyValue+4;break;
+ 141   4              case(0Xd0): KeyValue=KeyValue+8;break;
+ 142   4              case(0Xe0): KeyValue=KeyValue+12;break;
+ 143   4            }
+ 144   3            while((a<50)&&(GPIO_KEY!=0xf0))  //检测按键松手检测
+ 145   3            {
+ 146   4              delay_ms(10);
+ 147   4              a++;
+ 148   4            }
+ 149   3          }
+ 150   2        }
+ 151   1      
+ 152   1      }
+ 153          
+ 154          void admin_password_input()
+ 155          {
+ 156   1        u8 b=0;
+ 157   1        LcdWriteCom(0x80+1);
+ 158   1        for(i=0;i<11;i++)
+ 159   1        {
+ 160   2          LcdWriteData(words1[i]);
+ 161   2        }
+ 162   1        while(flag_2)
+ 163   1        {
+ 164   2          KeyDown();
+ 165   2          if(KeyValue<10)
+ 166   2          {
+ 167   3            re_admin_password[b]=KeyValue+'0';
+ 168   3            LcdWriteCom(0x80+0x40+b);
+ 169   3            LcdWriteData('*');
+ 170   3            KeyValue=11;
+ 171   3            b++;
+ 172   3            if(b>=4)
+ 173   3              b=0;
+ 174   3          }
+ 175   2          if(KeyValue==10) 
+ 176   2          {
+ 177   3            flag_2=0;
+ 178   3            KeyValue=20;
+C51 COMPILER V9.54   KEY                                                                   04/26/2020 10:02:37 PAGE 4   
+
+ 179   3            LcdWriteCom(0x01);
+ 180   3            
+ 181   3          }
+ 182   2        }
+ 183   1        LcdWriteCom(0x01);
+ 184   1        if(re_admin_password[0]=='1'&&re_admin_password[1]=='2'&&re_admin_password[2]=='3'&&re_admin_password[3]=
+             -='4')
+ 185   1        {
+ 186   2          LcdWriteCom(0x80+1);
+ 187   2          for(i=0;i<6;i++)
+ 188   2          {
+ 189   3            LcdWriteData(password_4[i]+'0');
+ 190   3          }
+ 191   2      
+ 192   2          flag_2=1;
+ 193   2          delay_ms(1000);
+ 194   2          delay_ms(1000);
+ 195   2          delay_ms(1000);
+ 196   2          LcdWriteCom(0x01);
+ 197   2        }
+ 198   1        else
+ 199   1        {
+ 200   2          LcdWriteCom(0x80);
+ 201   2          for(i=0;i<15;i++)
+ 202   2          {
+ 203   3            LcdWriteData(words4[i]);
+ 204   3          }
+ 205   2          flag_2=1;
+ 206   2          delay_ms(1000);
+ 207   2          LcdWriteCom(0x01);
+ 208   2        }
+ 209   1      }
+ 210          
+ 211          
+ 212          void match_password()
+ 213          {
+ 214   1        u8 c;
+ 215   1        
+ 216   1        if(password_1[0]==password_4[0]&&password_1[1]==password_4[1]&&password_1[2]==password_4[2]&&password_1[3
+             -]==password_4[3]&&password_1[4]==password_4[4]&&password_1[5]==password_4[5])
+ 217   1        {
+ 218   2          realy=1;
+ 219   2          LcdWriteCom(0x80+0x40+5);   
+ 220   2          LcdWriteData('Y');
+ 221   2          delay_ms(1000);
+ 222   2          delay_ms(1000);
+ 223   2          LcdWriteCom(0x01);
+ 224   2          
+ 225   2          flag_2=0;
+ 226   2        }
+ 227   1        else
+ 228   1        {
+ 229   2          LcdWriteCom(0x80+0x40+5);
+ 230   2          LcdWriteData('N');
+ 231   2          flag_2=1;
+ 232   2          KeyValue=20;
+ 233   2          delay_ms(1000);
+ 234   2          LcdWriteCom(0x01);
+ 235   2          flag++;
+ 236   2          while(flag<=3)
+ 237   2            password_input();
+ 238   2          if(flag==4)
+C51 COMPILER V9.54   KEY                                                                   04/26/2020 10:02:37 PAGE 5   
+
+ 239   2          { 
+ 240   3            realy=0;
+ 241   3            for(c=0;c<60;c++)
+ 242   3            {
+ 243   4              beep=0;
+ 244   4              delay_ms(500);
+ 245   4              beep=1;
+ 246   4              delay_ms(500);
+ 247   4              
+ 248   4            }
+ 249   3            flag=5;
+ 250   3            flag_2=0;
+ 251   3            
+ 252   3          }
+ 253   2        }
+ 254   1      
+ 255   1        
+ 256   1        
+ 257   1      }
+ 258          
+ 259          
+ 260          void password_input()
+ 261          {
+ 262   1        u8 b=0;
+ 263   1        LcdWriteCom(0x80+1);
+ 264   1        for(i=0;i<11;i++)
+ 265   1        {
+ 266   2          LcdWriteData(words1[i]);
+ 267   2        }
+ 268   1        while(flag_2)
+ 269   1        {
+ 270   2          KeyDown();
+ 271   2          if(KeyValue<10)
+ 272   2          {
+ 273   3            password_1[b]=KeyValue;
+ 274   3            LcdWriteCom(0x80+0x40+b);
+ 275   3            LcdWriteData('*');
+ 276   3            KeyValue=11;
+ 277   3            b++;
+ 278   3            if(b>=6)
+ 279   3              b=0;
+ 280   3          }
+ 281   2          if(KeyValue==10) 
+ 282   2          {
+ 283   3            match_password();
+ 284   3            KeyValue=20;
+ 285   3            LcdWriteCom(0x01);
+ 286   3            
+ 287   3          }
+ 288   2        }
+ 289   1        
+ 290   1      }
+ 291          
+ 292          
+ 293          void password_set()
+ 294          {
+ 295   1        u8 a=0;
+ 296   1        LcdWriteCom(0x80+1);
+ 297   1        for(i=0;i<9;i++)
+ 298   1        {
+ 299   2          LcdWriteData(words2[i]);
+ 300   2        }
+C51 COMPILER V9.54   KEY                                                                   04/26/2020 10:02:37 PAGE 6   
+
+ 301   1        while(flag_1)
+ 302   1        {
+ 303   2          KeyDown();
+ 304   2          if(KeyValue<10)
+ 305   2          {
+ 306   3            password_2[a]=KeyValue;
+ 307   3            LcdWriteCom(0x80+0x40+a);
+ 308   3            LcdWriteData(KeyValue+'0');
+ 309   3            KeyValue=11;
+ 310   3            a++;
+ 311   3            if(a>=6)
+ 312   3              a=0;
+ 313   3          }
+ 314   2          if(KeyValue==10) 
+ 315   2          {
+ 316   3            
+ 317   3            KeyValue=20;
+ 318   3            LcdWriteCom(0x01);
+ 319   3            
+ 320   3            LcdWriteCom(0x80+1);
+ 321   3            for(i=0;i<9;i++)
+ 322   3            {
+ 323   4              LcdWriteData(words2[i]);
+ 324   4            }
+ 325   3            while(flag_1)
+ 326   3            {
+ 327   4              KeyDown();
+ 328   4              if(KeyValue<10)
+ 329   4              {
+ 330   5                password_4[a]=KeyValue;
+ 331   5                LcdWriteCom(0x80+0x40+a);
+ 332   5                LcdWriteData(KeyValue+'0');
+ 333   5                KeyValue=11;
+ 334   5                a++;
+ 335   5                if(a>=6)
+ 336   5                  a=0;
+ 337   5              }
+ 338   4              if(KeyValue==10) 
+ 339   4              {
+ 340   5                flag_1=0;
+ 341   5                KeyValue=20;
+ 342   5                LcdWriteCom(0x01);
+ 343   5              }
+ 344   4              
+ 345   4            }
+ 346   3          
+ 347   3          if(password_4[0]==password_2[0]&&password_4[1]==password_2[1]&&password_4[2]==password_2[2]&&password_4[
+             -3]==password_2[3]&&password_4[4]==password_2[4]&&password_4[5]==password_2[5])
+ 348   3          {
+ 349   4            flag_3=1;
+ 350   4            LcdWriteCom(0x80);
+ 351   4            for(i=0;i<7;i++)
+ 352   4            {
+ 353   5              LcdWriteData(words5[i]);
+ 354   5            }
+ 355   4            At24c02Write(1,password_4[0]);   //在地址1内写入数据num
+ 356   4            delay_ms(100);
+ 357   4            At24c02Write(3,password_4[1]);
+ 358   4            delay_ms(100);
+ 359   4            At24c02Write(5,password_4[2]);
+ 360   4            delay_ms(100);
+ 361   4            At24c02Write(7,password_4[3]);
+C51 COMPILER V9.54   KEY                                                                   04/26/2020 10:02:37 PAGE 7   
+
+ 362   4            delay_ms(100);
+ 363   4            At24c02Write(9,password_4[4]);
+ 364   4            delay_ms(100);
+ 365   4            At24c02Write(11,password_4[5]);
+ 366   4            
+ 367   4            delay_ms(1000);
+ 368   4            delay_ms(1000);
+ 369   4            LcdWriteCom(0x01);
+ 370   4          }
+ 371   3          else
+ 372   3          {
+ 373   4            flag_3=1;
+ 374   4            LcdWriteCom(0x80);
+ 375   4            for(i=0;i<15;i++)
+ 376   4            {
+ 377   5              LcdWriteData(words4[i]);
+ 378   5            }
+ 379   4            duju();
+ 380   4            delay_ms(1000);
+ 381   4            delay_ms(1000);
+ 382   4            LcdWriteCom(0x01);
+ 383   4          }
+ 384   3        }
+ 385   2        }
+ 386   1      
+ 387   1      }
+ 388          
+ 389          
+ 390          void password_original()
+ 391          {
+ 392   1        u8 a=0;
+ 393   1        LcdWriteCom(0x80+1);
+ 394   1        for(i=0;i<10;i++)
+ 395   1        {
+ 396   2          LcdWriteData(words3[i]);
+ 397   2        }
+ 398   1        while(flag_3)
+ 399   1        {
+ 400   2          KeyDown();
+ 401   2          if(KeyValue<10)
+ 402   2          {
+ 403   3            password_3[a]=KeyValue;
+ 404   3            LcdWriteCom(0x80+0x40+a);
+ 405   3            LcdWriteData(KeyValue+'0');
+ 406   3            KeyValue=11;
+ 407   3            a++;
+ 408   3            if(a>=6)
+ 409   3              a=0;
+ 410   3          }
+ 411   2          if(KeyValue==10) 
+ 412   2          {
+ 413   3            flag_3=0;
+ 414   3            KeyValue=20;
+ 415   3            LcdWriteCom(0x01);
+ 416   3          }
+ 417   2          
+ 418   2        }
+ 419   1        if(password_3[0]==password_4[0]&&password_3[1]==password_4[1]&&password_3[2]==password_4[2]&&password_3[3
+             -]==password_4[3]&&password_3[4]==password_4[4]&&password_3[5]==password_4[5])
+ 420   1        {
+ 421   2          flag_3=1;
+ 422   2          LcdWriteCom(0x01);
+C51 COMPILER V9.54   KEY                                                                   04/26/2020 10:02:37 PAGE 8   
+
+ 423   2          password_set();
+ 424   2        }
+ 425   1        else
+ 426   1        {
+ 427   2          flag_3=1;
+ 428   2          LcdWriteCom(0x80);
+ 429   2          for(i=0;i<15;i++)
+ 430   2          {
+ 431   3            LcdWriteData(words4[i]);
+ 432   3          }
+ 433   2          delay_ms(1000);
+ 434   2          delay_ms(1000);
+ 435   2          LcdWriteCom(0x01);
+ 436   2        }
+ 437   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2103    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    110       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
